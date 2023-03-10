@@ -54,7 +54,7 @@
 				PBODisplay.height = RenderHeight;
 
 				g_pixelBufferDisplay = PBODisplay.getContext('2d');
-				g_pixelBufferDisplay.fillStyle = '#FF0000';
+				g_pixelBufferDisplay.fillStyle = '#000000';
 				g_pixelBufferDisplay.fillRect(0, 0, RenderHeight, RenderWidth);
 
 				g_camera = new THREE.PerspectiveCamera(FOV, RenderWidth / RenderHeight, 0.1, 1000);
@@ -68,28 +68,16 @@
 				g_objects.finalCube = createCube(g_renderToTexture.texture);
 				g_sceneB.add(g_objects.finalCube);
 
-				console.log("36160 == FRAMEBUFFER : %o", 36160 === gl.FRAMEBUFFER);
-				console.log("6408 == RGBA : %o", 6408 === gl.RGBA);
-				console.log("5121 == UNSIGNED_BYTE : %o", 5121 === gl.UNSIGNED_BYTE);
-
-				//document.getElementById('gpu_info').innerText = getUnmaskedInfo(gl);
-
 				let GPUInfo = '';
-
-				/*var performance = window.performance || window.mozPerformance || window.msPerformance || window.webkitPerformance || {};
-
-				document.write("<br>");
-				for (var value in performance) {
-					document.write(value + "<br>");
-				}
-
-				document.write("<br><br><br>");*/
-
 				GPUInfo += gl.getParameter(gl.RENDERER) + '<br />';
 				GPUInfo += gl.getParameter(gl.VENDOR) + '<br />';
 				GPUInfo += getUnmaskedInfo(gl).vendor + '<br />';
 				GPUInfo += getUnmaskedInfo(gl).renderer + '<br />';
 				document.getElementById('gpu_info').innerHTML = GPUInfo;
+
+				/*console.log("36160 == FRAMEBUFFER : %o", 36160 === gl.FRAMEBUFFER);
+				console.log("6408 == RGBA : %o", 6408 === gl.RGBA);
+				console.log("5121 == UNSIGNED_BYTE : %o", 5121 === gl.UNSIGNED_BYTE);*/
 
 				if ( g_realTime ) {
 					render();
@@ -98,7 +86,9 @@
 
 			let createDefaultFramebuffer = function ()
 			{
-				let mainRenderer = new THREE.WebGLRenderer({canvas: document.getElementById('3d-scene')});
+				let canvas = document.getElementById('3d-scene');
+
+				let mainRenderer = new THREE.WebGLRenderer({canvas: canvas});
 				mainRenderer.setSize(RenderWidth, RenderHeight);
 				mainRenderer.autoClear = false;
 
