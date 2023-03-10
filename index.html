@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="fr">
+	<head>
+		<meta charset="utf-8">
+		<title>Three.js test</title>
+
+		<script type="text/javascript" src="./js/three.min.js"></script>
+		<script type="text/javascript" src="./js/tools.js"></script>
+		<script type="text/javascript" src="./js/textureData.js"></script>
+
+		<script type="text/javascript">
+			const RenderWidth = 512;
+			const RenderHeight = 512;
+			const RenderSize = RenderWidth * RenderHeight;
+			const RenderRGBASize = RenderSize * 4;
+			const OffScreenRenderWidth = 4096;
+			const OffScreenRenderHeight = 4096;
+			const OffScreenRenderSample = 4;
+			const OffScreenRenderSize = OffScreenRenderWidth * OffScreenRenderHeight;
+			const OffScreenRenderRGBASize = OffScreenRenderSize * 4;
+			const FOV = 85.0;
+
+			/* WebGL related objects */
+			let g_mainRenderer = null; // Three.js
+			let g_renderToTexture = null; // Three.js
+			let g_pixelBufferObject = null; // Pure WebGL
+			let g_pixelBufferDisplay = null;
+
+			/* Local data */
+			let g_sceneA = null;
+			let g_sceneB = null;
+			let g_camera = null;
+			let g_objects = {};
+			let g_pixelBuffer = null;
+			let g_fpsCounter = new FpsCounter();
+
+			/* Options */
+			let g_realTime = false;
+			let g_usePixelBufferObject = false;
+
+			let init = function ()
+			{
+				g_mainRenderer = createDefaultFramebuffer();
+				g_renderToTexture = createRenderToTexture();
+				g_pixelBuffer = createPixelBuffer(false);
+				g_pixelBufferObject = createPixelBufferObject(g_mainRenderer.getContext());
+
+				/* Set the 3D scene. */
+				document.getElementById('3d-scene-container').appendChild(g_mainRenderer.domElement);
+
+				/* Set the canvas to red. */
+				g_pixelBufferDisplay = document.getElementById('pixel-buffer').getContext('2d');
+				g_pixelBufferDisplay.width = RenderWidth;
+				g_pixelBufferDisplay.height = RenderHeight;
+				g_pixelBufferDisplay.fillStyle = '#FF0000';
+				g_pixelBufferDisplay.fillRect(0, 0, RenderHeight, RenderWidth);
+
+				g_camera = new THREE.PerspectiveCamera(FOV, RenderWidth / RenderHeight, 0.1, 1000);
+				g_camera.position.z = 1.0;
+
+				g_sceneA = new THREE.Scene();
+				g_objects.texturedCube = createCube(createTexture2D(TextureData));
+				g_sceneA.add(g_objects.texturedCube);
+
+				g_sceneB = new THREE.Scene();
+				g_objects.finalCube = createCube(g_renderToTexture.texture);
+				g_sceneB.add(g_objects.finalCube);
+
+				console.log("36160 == FRAMEBUFFER : %o", 36160 === g_mainRenderer.getContext().FRAMEBUFFER);
+				console.log("6408 == RGBA : %o", 6408 === g_mainRenderer.getContext().RGBA);
+				console.log("5121 == UNSIGNED_BYTE : %o", 5121 === g_mainRenderer.getContext().UNSIGNED_BYTE);
+
+				if ( g_realTime ) {
+					render();
+				}
+			};
+
+			let createDefaultFramebuffer = function ()
+			{
+				let mainRenderer = new THREE.WebGLRenderer();
+				mainRenderer.setSize(RenderWidth, RenderHeight);
+				mainRenderer.autoClear = false;
+
+				return mainRenderer;
+			};
+
+			let createRenderToTexture = function ()
+			{
+				return new THREE.WebGLRenderTarget(OffScreenRenderWidth, OffScreenRenderHeight, {
+					wrapS: THREE.ClampToEdgeWrapping,
+					wrapT: THREE.ClampToEdgeWrapping,
+					magFilter: THREE.LinearFilter,
+					minFilter: THREE.LinearFilter,
+					generateMipmaps: false,
+					format: THREE.RGBAFormat,
+					UnsignedByteType: THREE.UnsignedByteType,
+					anisotropy: 8,
+					encoding: THREE.LinearEncoding,
+					depthBuffer: true,
+					stencilBuffer: false,
+					samples: OffScreenRenderSample
+				});
+			};
+
+			let createPixelBufferObject = function (gl)
+			{
+				let buffer = gl.createBuffer();
+
+				gl.bindBuffer(gl.PIXEL_PACK_BUFFER, buffer);
+
+				gl.bufferData(gl.PIXEL_PACK_BUFFER, g_pixelBuffer, gl.STATIC_DRAW);
+
+				gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+
+				return buffer;
+			};
+			
+			let createPixelBuffer = function (monochrome = true)
+			{
+				let pixelBuffer;
+
+				if ( monochrome )
+				{
+					pixelBuffer = new Uint8ClampedArray(OffScreenRenderSize);
+
+					for ( let i = 0; i < OffScreenRenderSize; i++ )
+						pixelBuffer[i] = rand(0, 255);
+				}
+				else
+				{
+					pixelBuffer = new Uint8ClampedArray(OffScreenRenderRGBASize);
+
+					for ( let i = 0; i < OffScreenRenderRGBASize; i += 4 )
+					{
+						pixelBuffer[i] = rand(0, 255);
+						pixelBuffer[i+1] = rand(0, 255);
+						pixelBuffer[i+2] = rand(0, 255);
+						pixelBuffer[i+3] = 255;
+					}
+				}
+
+				return pixelBuffer;
+			}
+
+			let createTexture2D = function (filename)
+			{
+				const texture = new THREE.TextureLoader().load(filename);
+				texture.wrapS = THREE.RepeatWrapping;
+				texture.wrapT = THREE.RepeatWrapping;
+				texture.magFilter = THREE.LinearFilter;
+				texture.minFilter = THREE.LinearFilter;
+				texture.anisotropy = 8;
+				texture.repeat.set(1, 1);
+				texture.generateMipmaps = true;
+
+				return texture;
+			};
+
+			let createCube = function (texture = null)
+			{
+				const geometry = new THREE.BoxGeometry(1, 1, 1);
+				const material = new THREE.MeshBasicMaterial({
+					color: 0x00ff00,
+					map: texture
+				});
+				return new THREE.Mesh(geometry, material);
+			};
+
+			let transferFramebufferToPixelBufferObject = function (gl, renderTarget = null)
+			{
+				if ( renderTarget )
+					gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g_mainRenderer.properties.get(renderTarget).__webglFramebuffer);
+
+				gl.bindBuffer(gl.PIXEL_PACK_BUFFER, g_pixelBufferObject);
+
+				gl.readPixels(0, 0, OffScreenRenderWidth, OffScreenRenderHeight, gl.RGBA, gl.UNSIGNED_BYTE, 0);
+
+				gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+
+				gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+			};
+
+			let readPixelBufferObject = function (gl, useReadPixel = false)
+			{
+				gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, g_pixelBufferObject);
+
+				if ( useReadPixel )
+					gl.readPixels(0, 0, OffScreenRenderWidth, OffScreenRenderHeight, gl.RGBA, gl.UNSIGNED_BYTE, g_pixelBuffer);
+				else
+					gl.getBufferSubData(gl.PIXEL_UNPACK_BUFFER, 0, g_pixelBuffer);
+
+				gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null);
+			};
+
+			let readFramebuffer = function (gl, renderTarget = null)
+			{
+				if ( renderTarget )
+					gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g_mainRenderer.properties.get(renderTarget).__webglFramebuffer);
+
+				gl.readPixels(0, 0, OffScreenRenderWidth, OffScreenRenderHeight, gl.RGBA, gl.UNSIGNED_BYTE, g_pixelBuffer);
+
+				gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null);
+			};
+
+			let showPixels = function ()
+			{
+				console.time("ScaleAndShow");
+
+				let imageData = new ImageData(g_pixelBuffer, OffScreenRenderWidth, OffScreenRenderHeight);
+
+				g_pixelBufferDisplay.putImageData(scaleImageData(imageData, RenderWidth, RenderHeight), 0, 0);
+
+				console.timeEnd("ScaleAndShow");
+			}
+
+			let render = function ()
+			{
+				g_fpsCounter.update();
+
+				document.getElementById('fps').innerHTML = g_fpsCounter.getCountPerSecond() + ' / ' + g_fpsCounter.getCountPerMinute();
+
+				console.time("MainRender");
+
+				if ( g_realTime ) {
+					requestAnimationFrame(render);
+				}
+
+				g_objects.texturedCube.rotation.x += 0.03;
+				g_objects.texturedCube.rotation.y += 0.03;
+
+				g_objects.finalCube.rotation.x -= 0.01;
+				g_objects.finalCube.rotation.y -= 0.01;
+
+				/* Render to off-screen target. */
+				g_mainRenderer.setRenderTarget(g_renderToTexture, 0, 0);
+				g_mainRenderer.setClearColor(new THREE.Color(0.5, 0.5, 0.5), 1.0);
+				g_mainRenderer.clear();
+				g_mainRenderer.render(g_sceneA, g_camera);
+
+				/* Render to default framebuffer. */
+				g_mainRenderer.setRenderTarget(null, 0, 0);
+				g_mainRenderer.setClearColor(new THREE.Color(0.65, 0, 0), 1.0);
+				g_mainRenderer.clear();
+				g_mainRenderer.render(g_sceneB, g_camera);
+
+				/* Get result in pixel buffer */
+				console.time("VideoToCPU");
+
+				if ( g_usePixelBufferObject )
+				{
+					transferFramebufferToPixelBufferObject(g_mainRenderer.getContext(), g_renderToTexture);
+
+					readPixelBufferObject(g_mainRenderer.getContext());
+				}
+				else
+				{
+					readFramebuffer(g_mainRenderer.getContext(), g_renderToTexture);
+				}
+
+				console.timeEnd("VideoToCPU");
+
+				console.timeEnd("MainRender");
+
+				console.log("++++++++++++++++++++++++++++++++++++++++++++++++");
+			};
+
+			window.addEventListener('load', function () {
+				init();
+
+				window.addEventListener("keydown", function (keyboardEvent) {
+					switch ( keyboardEvent.code )
+					{
+						case "Enter" :
+							if ( g_realTime ) {
+								return;
+							}
+
+							requestAnimationFrame(render);
+							break;
+
+						case "KeyQ" :
+							if ( g_realTime ) {
+								g_realTime = false;
+							}
+							else
+							{
+								g_realTime = true;
+
+								render();
+							}
+							break;
+
+						case "KeyW" :
+							if ( g_usePixelBufferObject )
+							{
+								g_usePixelBufferObject = false;
+
+								console.log("================ Using framebuffer directly ================ \n");
+							}
+							else
+							{
+								g_usePixelBufferObject = true;
+
+								console.log("================ Using PBO ================ \n");
+							}
+							break;
+
+						case "KeyE" :
+							showPixels();
+							break;
+					}
+				});
+			});
+		</script>
+
+		<style>
+			*
+			{
+				margin:0;
+				padding:0;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>FPS: <span id="fps">0</span></h1>
+		<div>
+			<div id="3d-scene-container" style="width:50%;float:left;overflow: hidden">
+				<p>3D Scene</p>
+			</div>
+
+			<div id="3d-pixel-buffer" style="width:50%;float:right;overflow: hidden">
+				<p>Pixel buffer</p>
+				<canvas id="pixel-buffer" width="512" height="512"></canvas>
+			</div>
+		</div>
+	</body>
+</html>
