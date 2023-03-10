@@ -119,7 +119,7 @@
 
 				gl.bindBuffer(gl.PIXEL_PACK_BUFFER, buffer);
 
-				gl.bufferData(gl.PIXEL_PACK_BUFFER, g_pixelBuffer, gl.STATIC_DRAW);
+				gl.bufferData(gl.PIXEL_PACK_BUFFER, g_pixelBuffer, gl.DYNAMIC_READ);
 
 				gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
 
