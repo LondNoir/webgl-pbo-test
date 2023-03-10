@@ -42,16 +42,18 @@
 			{
 				g_mainRenderer = createDefaultFramebuffer();
 				g_renderToTexture = createRenderToTexture();
-				g_pixelBuffer = createPixelBuffer(false);
-				g_pixelBufferObject = createPixelBufferObject(g_mainRenderer.getContext());
 
-				/* Set the 3D scene. */
-				document.getElementById('3d-scene-container').appendChild(g_mainRenderer.domElement);
+				const gl = g_mainRenderer.getContext();
+
+				g_pixelBuffer = createPixelBuffer(false);
+				g_pixelBufferObject = createPixelBufferObject(gl);
 
 				/* Set the canvas to red. */
-				g_pixelBufferDisplay = document.getElementById('pixel-buffer').getContext('2d');
-				g_pixelBufferDisplay.width = RenderWidth;
-				g_pixelBufferDisplay.height = RenderHeight;
+				let PBODisplay = document.getElementById('pixel-buffer');
+				PBODisplay.width = RenderWidth;
+				PBODisplay.height = RenderHeight;
+
+				g_pixelBufferDisplay = PBODisplay.getContext('2d');
 				g_pixelBufferDisplay.fillStyle = '#FF0000';
 				g_pixelBufferDisplay.fillRect(0, 0, RenderHeight, RenderWidth);
 
@@ -66,9 +68,28 @@
 				g_objects.finalCube = createCube(g_renderToTexture.texture);
 				g_sceneB.add(g_objects.finalCube);
 
-				console.log("36160 == FRAMEBUFFER : %o", 36160 === g_mainRenderer.getContext().FRAMEBUFFER);
-				console.log("6408 == RGBA : %o", 6408 === g_mainRenderer.getContext().RGBA);
-				console.log("5121 == UNSIGNED_BYTE : %o", 5121 === g_mainRenderer.getContext().UNSIGNED_BYTE);
+				console.log("36160 == FRAMEBUFFER : %o", 36160 === gl.FRAMEBUFFER);
+				console.log("6408 == RGBA : %o", 6408 === gl.RGBA);
+				console.log("5121 == UNSIGNED_BYTE : %o", 5121 === gl.UNSIGNED_BYTE);
+
+				//document.getElementById('gpu_info').innerText = getUnmaskedInfo(gl);
+
+				let GPUInfo = '';
+
+				/*var performance = window.performance || window.mozPerformance || window.msPerformance || window.webkitPerformance || {};
+
+				document.write("<br>");
+				for (var value in performance) {
+					document.write(value + "<br>");
+				}
+
+				document.write("<br><br><br>");*/
+
+				GPUInfo += gl.getParameter(gl.RENDERER) + '<br />';
+				GPUInfo += gl.getParameter(gl.VENDOR) + '<br />';
+				GPUInfo += getUnmaskedInfo(gl).vendor + '<br />';
+				GPUInfo += getUnmaskedInfo(gl).renderer + '<br />';
+				document.getElementById('gpu_info').innerHTML = GPUInfo;
 
 				if ( g_realTime ) {
 					render();
@@ -77,7 +98,7 @@
 
 			let createDefaultFramebuffer = function ()
 			{
-				let mainRenderer = new THREE.WebGLRenderer();
+				let mainRenderer = new THREE.WebGLRenderer({canvas: document.getElementById('3d-scene')});
 				mainRenderer.setSize(RenderWidth, RenderHeight);
 				mainRenderer.autoClear = false;
 
@@ -295,13 +316,13 @@
 							{
 								g_usePixelBufferObject = false;
 
-								console.log("================ Using framebuffer directly ================ \n");
+								document.getElementById('mode').innerText = 'Framebuffer';
 							}
 							else
 							{
 								g_usePixelBufferObject = true;
 
-								console.log("================ Using PBO ================ \n");
+								document.getElementById('mode').innerText = 'PixelBufferObject';
 							}
 							break;
 
@@ -314,24 +335,47 @@
 		</script>
 
 		<style>
-			*
-			{
-				margin:0;
-				padding:0;
-			}
+			* {margin:0;padding:0}
 		</style>
 	</head>
 	<body>
-		<h1>FPS: <span id="fps">0</span></h1>
-		<div>
-			<div id="3d-scene-container" style="width:50%;float:left;overflow: hidden">
-				<p>3D Scene</p>
+		<div style="margin:16px">
+			<div style="width:50%;float:left;overflow: hidden">
+				<h1>FPS: <span id="fps">0</span></h1>
+				<h2>Mode: <span id="mode">Framebuffer</span></h2>
 			</div>
 
-			<div id="3d-pixel-buffer" style="width:50%;float:right;overflow: hidden">
-				<p>Pixel buffer</p>
-				<canvas id="pixel-buffer" width="512" height="512"></canvas>
+			<div style="width:50%;float:right;overflow: hidden">
+				<h2>GPU information</h2>
+				<p id="gpu_info"></p>
 			</div>
+
+			<div style="clear:both"></div>
+		</div>
+
+		<hr />
+
+		<div style="margin:16px;text-align:center">
+			<div id="3d-scene-container" style="width:50%;float:left;overflow: hidden;text-align:center">
+				<p>3D Scene</p>
+				<canvas id="3d-scene"></canvas>
+			</div>
+
+			<div style="width:50%;float:right;overflow: hidden">
+				<p>Pixel buffer</p>
+				<canvas id="pixel-buffer"></canvas>
+			</div>
+
+			<div style="clear:both"></div>
+		</div>
+
+		<hr />
+
+		<div style="margin:16px;font-size:21px">
+			<h2>Keyboard controls</h2>
+			<p>Press <b>A</b> to start/stop the rendering.</p>
+			<p>Press <b>Z</b> to switch from framebuffer to PBO reading.</p>
+			<p>Press <b>E</b> to print current image in &quot;pixel buffer&quot; display.</p>
 		</div>
 	</body>
 </html>

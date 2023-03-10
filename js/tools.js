@@ -113,3 +113,21 @@ let rand = function (min, max)
 {
     return Math.floor(Math.random() * (max - min + 1) + min)
 }
+
+function getUnmaskedInfo (gl)
+{
+    let unMaskedInfo = {
+        renderer: '',
+        vendor: ''
+    };
+
+    let dbgRenderInfo = gl.getExtension("WEBGL_debug_renderer_info");
+
+    if ( dbgRenderInfo != null )
+    {
+        unMaskedInfo.renderer = gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL);
+        unMaskedInfo.vendor = gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL);
+    }
+
+    return unMaskedInfo;
+}
