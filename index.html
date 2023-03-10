@@ -255,20 +255,26 @@
 				g_mainRenderer.render(g_sceneB, g_camera);
 
 				/* Get result in pixel buffer */
-				console.time("VideoToCPU");
-
 				if ( g_usePixelBufferObject )
 				{
+					console.time("VideoToCPU(PBO)");
+
 					transferFramebufferToPixelBufferObject(g_mainRenderer.getContext(), g_renderToTexture);
 
 					readPixelBufferObject(g_mainRenderer.getContext());
+
+					console.timeEnd("VideoToCPU(PBO)");
 				}
 				else
 				{
+					console.time("VideoToCPU(Framebuffer)");
+
 					readFramebuffer(g_mainRenderer.getContext(), g_renderToTexture);
+
+					console.timeEnd("VideoToCPU(Framebuffer)");
 				}
 
-				console.timeEnd("VideoToCPU");
+
 
 				console.timeEnd("MainRender");
 
